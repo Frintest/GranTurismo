@@ -9,7 +9,8 @@ class BaseScene {
 	CreateScene() {
 		// scene
 		const scene = new BABYLON.Scene(this.engine);
-		scene.clearColor = new BABYLON.Color3.FromHexString('#94bed0');
+		scene.clearColor = new BABYLON.Color3.FromHexString('#94bed0')
+		scene.debugLayer.show();
 
 		// camera
 		const camera = new BABYLON.ArcRotateCamera('camera', 0, Math.PI / 2.5, 60, new BABYLON.Vector3(0, 0, 0), scene);
@@ -45,8 +46,9 @@ class BaseScene {
 			constructor() {
 				BABYLON.SceneLoader.Append('./models/', 'auto.glb', scene, (result) => {
 					const mesh = result.meshes[1];
+					mesh.name = 'autoMesh';
 
-					mesh.scaling = new BABYLON.Vector3(5, 5, -5); //TODO
+					mesh.scaling = new BABYLON.Vector3(5, 5, 5);
 					mesh.position.y = 1.27;
 				});
 			}
@@ -72,27 +74,71 @@ class BaseScene {
 				this.shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
 				this.shadowGenerator.usePercentageCloserFiltering = true; // PCF
 
-				this.getShadowMap(arrMeshMap);
+				this.addShadowMap(arrMeshMap);
 				this.addReceiveShadows(arrMeshReceive);
 			}
 
-			getShadowMap(arrMeshMap) {
+			/**
+			 * обработка объектов создающих тени
+			 * 
+			 * проходимся froEach по arrMeshMap
+			 * и проверяем есть ли дочерние меши (getChildMeshes),
+			 * 
+			 * если есть,то
+			 * проходимся по каждому дочернему элементу,
+			 * 
+			 * иначе
+			 * только по корневому мешу (roooNodes)
+			 * 
+			 * @param {array} arrMeshMap - объекты создающие тени
+			 */
+			addShadowMap(arrMeshMap) {
 				arrMeshMap.forEach((mesh) => {
-					this.shadowGenerator.getShadowMap().renderList.push(mesh);
+					if (mesh.getChildMeshes().length != 0) {
+						mesh.getChildMeshes().forEach((meshChild) => {
+							this.shadowGenerator.getShadowMap().renderList.push(meshChild);
+						});
+					} else {
+						this.shadowGenerator.getShadowMap().renderList.push(mesh);
+					}
 				});
 			}
 
-			addReceiveShadows(arrMeshReceive) {
-				arrMeshReceive.forEach((mesh) => {
-					mesh.receiveShadows = true;
+
+			/**
+			 * обработка объекток отображающие (поглощающие) тени
+			 * 
+			 * проходимся froEach по arrMeshMap
+			 * и проверяем есть ли дочерние меши (getChildMeshes),
+			 * 
+			 * если есть,то
+			 * проходимся по каждому дочернему элементу,
+			 * 
+			 * иначе
+			 * только по корневому мешу (roooNodes)
+			 * 
+			 * @param {array} arrMeshMap - объекты отображающие (поглощающие) тени
+			 */
+			addReceiveShadows(arrMeshMap) {
+				arrMeshMap.forEach((mesh) => {
+					if (mesh.getChildMeshes().length != 0) {
+						mesh.getChildMeshes().forEach((meshChild) => {
+							meshChild.receiveShadows = true;
+						});
+					} else {
+						mesh.receiveShadows = true;
+					}
 				});
 			}
 		}
 
-		const meshesGetShadowMap = []; // объекты от которых падает тень
-		const meshesReceiveShadows = [scene.meshes[0]]; // объеты отображающие тень
+		// дожидаемся полной загрузки сцены
+		setTimeout(() => {
+			const meshesGetShadowMap = [scene.getMeshByName('autoMesh')]; // объекты от которых падает тень
+			const meshesReceiveShadows = [scene.getMeshByName('roadMesh')]; // объеты отображающие тень
 
-		new GenerateShadowsMap(meshesGetShadowMap, meshesReceiveShadows);
+			new GenerateShadowsMap(meshesGetShadowMap, meshesReceiveShadows);
+		}, 1000);
 
 
 		// render
